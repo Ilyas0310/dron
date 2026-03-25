@@ -2,73 +2,114 @@ using UnityEngine;
 
 public class DroneController : MonoBehaviour
 {
-    [Header("Тяга (Взлет)")]
-    public float thrustForce = 25f;  
+    [Header("Двигатели и Тяга (Колесико мыши)")]
+    public float maxThrust = 40f;    
+    public float throttleSpeed = 2f; 
+    
+    [SerializeField] 
+    private float currentThrottle = 0f; 
 
-    [Header("Инерция и Торможение (Реализм)")]
-    public float acceleration = 1.5f;   // Как долго дрон разгоняется (меньше = дольше разгон)
-    public float horizontalDrag = 2f;   // Торможение об воздух по горизонтали (чтобы не скользил вечно)
+    [Header("Система урона")]
+    public float maxHealth = 100f;          // Максимальное здоровье
+    public float currentHealth = 100f;      // Текущее здоровье
+    public float crashTolerance = 5f;       // Порог: удары слабее этой скорости игнорируются
+    public float damageMultiplier = 2f;     // На сколько умножать урон при сильном ударе
 
-    [Header("Управление наклоном (Стабилизация)")]
-    public float maxTiltAngle = 35f; 
-    public float tiltSpeed = 4f;     
+    [Header("Инерция и Торможение")]
+    public float acceleration = 2f;
+    public float horizontalDrag = 3f;
 
-    [Header("Поворот вокруг своей оси (Yaw)")]
-    public float yawSpeed = 100f;    
+    [Header("Стабилизация и Наклон")]
+    public float maxTiltAngle = 35f;
+    public float tiltSpeed = 5f;
+
+    [Header("Поворот (Yaw)")]
+    public float yawSpeed = 100f;
 
     private Rigidbody rb;
-    private float currentYaw;        
-    
-    // Переменные для хранения "плавного" текущего состояния
+    private float currentYaw;
     private float currentPitch = 0f;
     private float currentRoll = 0f;
-    private float currentThrust = 0f;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        currentYaw = transform.eulerAngles.y; 
+        currentYaw = transform.eulerAngles.y;
+        currentHealth = maxHealth; // При старте дрон полностью цел
+    }
+
+    void Update()
+    {
+        // Управление газом
+        float scroll = Input.mouseScrollDelta.y;
+        if (scroll != 0)
+        {
+            currentThrottle += scroll * throttleSpeed * Time.deltaTime;
+            currentThrottle = Mathf.Clamp(currentThrottle, 0f, 1f);
+        }
     }
 
     void FixedUpdate()
     {
-        // === 1. ПЛАВНЫЙ ВВОД (Инерция) ===
-        // Считываем, что нажал игрок (целевые значения)
-        float targetPitch = Input.GetAxis("Vertical");   // W/S
-        float targetRoll = Input.GetAxis("Horizontal");  // A/D
-        float targetThrust = Input.GetKey(KeyCode.Space) ? 1f : 0f;
+        float targetPitch = Input.GetAxis("Vertical");   
+        float targetRoll = Input.GetAxis("Horizontal");  
 
-        // Mathf.Lerp плавно переводит текущее значение к целевому. 
-        // Это создает эффект "тяжести" и долгого разгона моторов.
         currentPitch = Mathf.Lerp(currentPitch, targetPitch, acceleration * Time.fixedDeltaTime);
         currentRoll = Mathf.Lerp(currentRoll, targetRoll, acceleration * Time.fixedDeltaTime);
-        currentThrust = Mathf.Lerp(currentThrust, targetThrust, acceleration * Time.fixedDeltaTime);
 
-        // === 2. ТЯГА ВВЕРХ ===
-        // Теперь тяга нарастает плавно
-        rb.AddRelativeForce(Vector3.up * (currentThrust * thrustForce));
+        // === ВЛИЯНИЕ УРОНА НА ТЯГУ ===
+        // Вычисляем процент здоровья (от 1.0 до 0.0)
+        float healthFactor = currentHealth / maxHealth; 
+        
+        // Умножаем тягу на процент здоровья (если сломан наполовину, тяга упадет в 2 раза)
+        float actualThrust = currentThrottle * maxThrust * healthFactor;
 
-        // === 3. РЕАЛИСТИЧНАЯ ГРАВИТАЦИЯ И ТОРМОЖЕНИЕ ===
-        // Получаем текущую скорость дрона (в Unity 6 это linearVelocity, в старых velocity)
+        float tiltCompensation = 1f + (Mathf.Abs(currentPitch) + Mathf.Abs(currentRoll)) * 0.2f;
+
+        // Если здоровье больше 0, моторы работают
+        if (currentHealth > 0)
+        {
+            rb.AddRelativeForce(Vector3.up * (actualThrust * tiltCompensation));
+        }
+
         Vector3 velocity = rb.linearVelocity; 
-        
-        // Берем только горизонтальную скорость (без высоты Y)
         Vector3 horizontalVelocity = new Vector3(velocity.x, 0, velocity.z);
-        
-        // Применяем обратную силу для торможения только по горизонтали
         rb.AddForce(-horizontalVelocity * horizontalDrag, ForceMode.Acceleration);
 
-        // === 4. ПОВОРОТ И НАКЛОН ===
         float yawInput = 0f;
         if (Input.GetKey(KeyCode.E)) yawInput = 1f;
         if (Input.GetKey(KeyCode.Q)) yawInput = -1f;
         currentYaw += yawInput * yawSpeed * Time.fixedDeltaTime;
 
-        // Вычисляем углы на основе сглаженного ввода
-        float pitchAngle = currentPitch * maxTiltAngle; 
-        float rollAngle = -currentRoll * maxTiltAngle; 
+        float pitchAngle = currentPitch * maxTiltAngle;
+        float rollAngle = -currentRoll * maxTiltAngle;
 
         Quaternion targetRotation = Quaternion.Euler(pitchAngle, currentYaw, rollAngle);
         rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, tiltSpeed * Time.fixedDeltaTime));
+    }
+
+    // === ФИЗИКА УДАРОВ ===
+    void OnCollisionEnter(Collision collision)
+    {
+        // Измеряем силу столкновения
+        float impactSpeed = collision.relativeVelocity.magnitude;
+
+        // Если удар оказался сильнее нашей "мягкой посадки"
+        if (impactSpeed > crashTolerance)
+        {
+            // Формула урона: превышение скорости умножаем на множитель
+            float damage = (impactSpeed - crashTolerance) * damageMultiplier;
+            currentHealth -= damage;
+            
+            // Не даем здоровью уйти в минус
+            currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+
+            Debug.Log($"Авария! Сила удара: {impactSpeed:F1} | Урон: {damage:F1} | Остаток прочности: {currentHealth:F1}%");
+
+            if (currentHealth <= 0)
+            {
+                Debug.Log("Дрон полностью уничтожен! Моторы заглохли.");
+            }
+        }
     }
 }

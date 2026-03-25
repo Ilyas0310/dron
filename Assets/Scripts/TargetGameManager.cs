@@ -34,6 +34,7 @@ public class TargetGameManager : MonoBehaviour
         if (currentTargets <= 0)
         {
             Win();
+            
         }
     }
 
@@ -57,7 +58,7 @@ public class TargetGameManager : MonoBehaviour
         if (winPanel != null) 
         {
             winPanel.SetActive(true);
-            
+            FindFirstObjectByType<DroneController>().enabled = false;
             // <--- НОВОЕ: Расчет точности
             CalculateAndShowAccuracy();
         }

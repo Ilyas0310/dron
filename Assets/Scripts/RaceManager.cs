@@ -75,6 +75,7 @@ public class RaceManager : MonoBehaviour
         {
             winPanel.SetActive(true);
             finalTimeText.text = "Время: " + FormatTime(currentTime);
+            FindFirstObjectByType<DroneController>().enabled = false;
         }
     }
 

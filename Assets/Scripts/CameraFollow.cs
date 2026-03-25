@@ -5,36 +5,53 @@ public class CameraFollow : MonoBehaviour
     [Header("Цель слежения")]
     public Transform target;
 
-    [Header("Настройки позиции")]
-    // Теперь Y (высота) больше, чтобы камера была выше дрона
-    public Vector3 offset = new Vector3(0, 3f, -5f); 
-    public float positionSmoothSpeed = 10f; // Плавность движения
+    [Header("Режим камеры")]
+    public bool isFirstPerson = false; // Текущий режим (по умолчанию 3-е лицо)
 
-    [Header("Настройки взгляда")]
-    public float lookHeightOffset = 1.5f;   // На сколько выше дрона будет смотреть камера
-    public float rotationSmoothSpeed = 5f;  // Плавность поворота камеры
+    [Header("Настройки 3-го лица")]
+    public Vector3 thirdPersonOffset = new Vector3(0, 3f, -5f);
+    public float lookHeightOffset = 1.5f;
 
-    void FixedUpdate()
+    [Header("Настройки 1-го лица (FPV)")]
+    // Смещение от центра дрона, чтобы камера была "в носу", а не внутри текстур самого дрона
+    public Vector3 firstPersonOffset = new Vector3(0, 0.2f, 0.5f); 
+
+    void Update()
+    {
+        // Переключение вида по нажатию кнопки V на клавиатуре (для удобства)
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            ToggleCameraView();
+        }
+    }
+
+    void LateUpdate()
     {
         if (target == null) return;
 
-        // 1. Берем ТОЛЬКО поворот дрона по горизонтали (Y - Yaw)
-        // Игнорируем наклоны вперед/назад и влево/вправо
-        float currentYaw = target.eulerAngles.y;
-        Quaternion horizontalRotation = Quaternion.Euler(0, currentYaw, 0);
+        if (isFirstPerson)
+        {
+            // === РЕЖИМ ОТ 1-ГО ЛИЦА (FPV) ===
+            // Камера жестко привязывается к позиции и всем наклонам дрона
+            transform.position = target.position + (target.rotation * firstPersonOffset);
+            transform.rotation = target.rotation;
+        }
+        else
+        {
+            // === РЕЖИМ ОТ 3-ГО ЛИЦА ===
+            float currentYaw = target.eulerAngles.y;
+            Quaternion horizontalRotation = Quaternion.Euler(0, currentYaw, 0);
 
-        // 2. Вычисляем идеальную позицию сзади и сверху (с учетом только горизонтального поворота)
-        Vector3 desiredPosition = target.position + (horizontalRotation * offset);
+            transform.position = target.position + (horizontalRotation * thirdPersonOffset);
 
-        // 3. Плавно летим в эту точку
-        transform.position = Vector3.Lerp(transform.position, desiredPosition, positionSmoothSpeed * Time.fixedDeltaTime);
+            Vector3 lookAtPoint = target.position + (Vector3.up * lookHeightOffset);
+            transform.LookAt(lookAtPoint);
+        }
+    }
 
-        // 4. Куда смотрим?
-        // Чтобы не пялиться в землю, смотрим в точку, которая находится чуть ВЫШЕ самого дрона
-        Vector3 lookAtPoint = target.position + (Vector3.up * lookHeightOffset);
-        
-        // Вычисляем нужный угол поворота камеры и плавно поворачиваемся
-        Quaternion desiredRotation = Quaternion.LookRotation(lookAtPoint - transform.position);
-        transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, rotationSmoothSpeed * Time.fixedDeltaTime);
+    // Эту функцию мы будем вызывать при нажатии на UI-кнопку в настройках
+    public void ToggleCameraView()
+    {
+        isFirstPerson = !isFirstPerson; // Меняем значение на противоположное
     }
 }
