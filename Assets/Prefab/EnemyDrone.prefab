@@ -14,7 +14,6 @@ GameObject:
   - component: {fileID: 3300754955129843876}
   - component: {fileID: 18158339363737358}
   - component: {fileID: 1113446040619027164}
-  - component: {fileID: 5438692532467661972}
   m_Layer: 0
   m_Name: EnemyDrone
   m_TagString: Enemy
@@ -155,16 +154,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
   speed: 3
   changeTargetDistance: 5
+  player: {fileID: 0}
+  fleeDistance: 15
   mapBounds: {x: 30, y: 10, z: 30}
---- !u!114 &5438692532467661972
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4705638220679357877}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a499e99bfc76e384aa3062d3a13b2a42, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CatchMechanic

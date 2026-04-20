@@ -20,6 +20,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/TargetMode.unity
     guid: 859c7c667893a0140b585b6702b7dfce
+  - enabled: 1
+    path: Assets/Scenes/FollowMode.unity
+    guid: 941723af86eee684287d431130d830b4
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

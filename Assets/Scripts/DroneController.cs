@@ -2,18 +2,15 @@ using UnityEngine;
 
 public class DroneController : MonoBehaviour
 {
-    [Header("Двигатели и Тяга (Колесико мыши)")]
-    public float maxThrust = 40f;    
-    public float throttleSpeed = 2f; 
-    
-    [SerializeField] 
-    private float currentThrottle = 0f; 
+    [Header("Высота и Зависание (DJI Mode)")]
+    public float verticalSpeed = 5f;
+    public float verticalAcceleration = 10f;
 
     [Header("Система урона")]
-    public float maxHealth = 100f;          // Максимальное здоровье
-    public float currentHealth = 100f;      // Текущее здоровье
-    public float crashTolerance = 5f;       // Порог: удары слабее этой скорости игнорируются
-    public float damageMultiplier = 2f;     // На сколько умножать урон при сильном ударе
+    public float maxHealth = 100f;
+    public float currentHealth = 100f;
+    public float crashTolerance = 5f;
+    public float damageMultiplier = 2f;
 
     [Header("Инерция и Торможение")]
     public float acceleration = 2f;
@@ -26,6 +23,12 @@ public class DroneController : MonoBehaviour
     [Header("Поворот (Yaw)")]
     public float yawSpeed = 100f;
 
+    [Header("Настройки кнопок (Клавиатура)")]
+    public KeyCode thrustUpKey = KeyCode.Space;
+    public KeyCode thrustDownKey = KeyCode.LeftControl;
+    public KeyCode yawLeftKey = KeyCode.Q;
+    public KeyCode yawRightKey = KeyCode.E;
+
     private Rigidbody rb;
     private float currentYaw;
     private float currentPitch = 0f;
@@ -35,81 +38,80 @@ public class DroneController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         currentYaw = transform.eulerAngles.y;
-        currentHealth = maxHealth; // При старте дрон полностью цел
-    }
+        currentHealth = maxHealth;
 
-    void Update()
-    {
-        // Управление газом
-        float scroll = Input.mouseScrollDelta.y;
-        if (scroll != 0)
-        {
-            currentThrottle += scroll * throttleSpeed * Time.deltaTime;
-            currentThrottle = Mathf.Clamp(currentThrottle, 0f, 1f);
-        }
+        // ЗАГРУЗКА КНОПОК: Если игрок их менял, грузим новые. Если нет - берем стандартные.
+        thrustUpKey = (KeyCode)PlayerPrefs.GetInt("key_up", (int)KeyCode.Space);
+        thrustDownKey = (KeyCode)PlayerPrefs.GetInt("key_down", (int)KeyCode.LeftControl);
+        yawLeftKey = (KeyCode)PlayerPrefs.GetInt("key_left", (int)KeyCode.Q);
+        yawRightKey = (KeyCode)PlayerPrefs.GetInt("key_right", (int)KeyCode.E);
     }
 
     void FixedUpdate()
     {
-        float targetPitch = Input.GetAxis("Vertical");   
-        float targetRoll = Input.GetAxis("Horizontal");  
+        // === 1. ВВОД НАКЛОНОВ (Правый стик Xbox или W/S A/D) ===
+        // Читаем ввод с правого стика (названия осей из шага 1)
+        float targetPitch = Input.GetAxis("VerticalRS") + Input.GetAxis("Vertical");
+        float targetRoll = Input.GetAxis("HorizontalRS") + Input.GetAxis("Horizontal");
+
+        // Ограничиваем значения в пределах -1...1
+        targetPitch = Mathf.Clamp(targetPitch, -1f, 1f);
+        targetRoll = Mathf.Clamp(targetRoll, -1f, 1f);
 
         currentPitch = Mathf.Lerp(currentPitch, targetPitch, acceleration * Time.fixedDeltaTime);
         currentRoll = Mathf.Lerp(currentRoll, targetRoll, acceleration * Time.fixedDeltaTime);
 
-        // === ВЛИЯНИЕ УРОНА НА ТЯГУ ===
-        // Вычисляем процент здоровья (от 1.0 до 0.0)
-        float healthFactor = currentHealth / maxHealth; 
+        // === 2. ТЯГА ===
+        float verticalInput = 0f;
+        verticalInput += Input.GetAxis("Triggers"); // Геймпад
         
-        // Умножаем тягу на процент здоровья (если сломан наполовину, тяга упадет в 2 раза)
-        float actualThrust = currentThrottle * maxThrust * healthFactor;
+        // КЛАВИАТУРА (теперь используем переменные!)
+        if (Input.GetKey(thrustUpKey)) verticalInput = 1f;
+        if (Input.GetKey(thrustDownKey)) verticalInput = -1f;
 
-        float tiltCompensation = 1f + (Mathf.Abs(currentPitch) + Mathf.Abs(currentRoll)) * 0.2f;
+        verticalInput = Mathf.Clamp(verticalInput, -1f, 1f);
 
-        // Если здоровье больше 0, моторы работают
+        float targetVy = verticalInput * verticalSpeed;
+        float currentVy = rb.linearVelocity.y;
+        float verticalForce = (targetVy - currentVy) * verticalAcceleration;
+        float hoverForce = rb.mass * Mathf.Abs(Physics.gravity.y);
+        
+        float desiredGlobalUpForce = hoverForce + verticalForce;
+        float cosTheta = Mathf.Max(Vector3.Dot(transform.up, Vector3.up), 0.2f);
+        float actualThrust = (desiredGlobalUpForce / cosTheta) * (currentHealth / maxHealth);
+
         if (currentHealth > 0)
         {
-            rb.AddRelativeForce(Vector3.up * (actualThrust * tiltCompensation));
+            rb.AddRelativeForce(Vector3.up * actualThrust);
         }
 
-        Vector3 velocity = rb.linearVelocity; 
+       // === 3. ПОВОРОТ ===
+        float yawInput = Input.GetAxis("Horizontal"); // Геймпад
+        
+        // КЛАВИАТУРА (используем переменные)
+        if (Input.GetKey(yawRightKey)) yawInput = 1f;
+        if (Input.GetKey(yawLeftKey)) yawInput = -1f;
+        
+        currentYaw += yawInput * yawSpeed * Time.fixedDeltaTime;
+
+        // === 4. ПРИМЕНЕНИЕ ФИЗИКИ ===
+        Vector3 velocity = rb.linearVelocity;
         Vector3 horizontalVelocity = new Vector3(velocity.x, 0, velocity.z);
         rb.AddForce(-horizontalVelocity * horizontalDrag, ForceMode.Acceleration);
 
-        float yawInput = 0f;
-        if (Input.GetKey(KeyCode.E)) yawInput = 1f;
-        if (Input.GetKey(KeyCode.Q)) yawInput = -1f;
-        currentYaw += yawInput * yawSpeed * Time.fixedDeltaTime;
-
-        float pitchAngle = currentPitch * maxTiltAngle;
-        float rollAngle = -currentRoll * maxTiltAngle;
-
-        Quaternion targetRotation = Quaternion.Euler(pitchAngle, currentYaw, rollAngle);
+        Quaternion targetRotation = Quaternion.Euler(currentPitch * maxTiltAngle, currentYaw, -currentRoll * maxTiltAngle);
         rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, tiltSpeed * Time.fixedDeltaTime));
     }
 
-    // === ФИЗИКА УДАРОВ ===
     void OnCollisionEnter(Collision collision)
     {
-        // Измеряем силу столкновения
         float impactSpeed = collision.relativeVelocity.magnitude;
-
-        // Если удар оказался сильнее нашей "мягкой посадки"
         if (impactSpeed > crashTolerance)
         {
-            // Формула урона: превышение скорости умножаем на множитель
             float damage = (impactSpeed - crashTolerance) * damageMultiplier;
             currentHealth -= damage;
-            
-            // Не даем здоровью уйти в минус
             currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
-
-            Debug.Log($"Авария! Сила удара: {impactSpeed:F1} | Урон: {damage:F1} | Остаток прочности: {currentHealth:F1}%");
-
-            if (currentHealth <= 0)
-            {
-                Debug.Log("Дрон полностью уничтожен! Моторы заглохли.");
-            }
+            Debug.Log($"Удар! Прочность: {currentHealth:F1}%");
         }
     }
 }

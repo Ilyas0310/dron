@@ -151,5 +151,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraFollow
   target: {fileID: 0}
-  offset: {x: 0, y: 2, z: -4}
-  smoothSpeed: 10
+  isFirstPerson: 0
+  isLookingDown: 0
+  thirdPersonOffset: {x: 0, y: 3, z: -5}
+  lookHeightOffset: 1.5
+  firstPersonOffset: {x: 0, y: 0.2, z: 0.5}
+  downwardOffset: {x: 0, y: -0.2, z: 0}
+  downwardPitchAngle: 90
