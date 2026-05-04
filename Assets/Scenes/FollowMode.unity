@@ -1153,6 +1153,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PlayerDrone
       objectReference: {fileID: 0}
+    - target: {fileID: 4536163936219702588, guid: 6c534013df766dc4c8e96fb96b59b7e6, type: 3}
+      propertyPath: moveForce
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 8796266891176258969, guid: 6c534013df766dc4c8e96fb96b59b7e6, type: 3}
       propertyPath: m_LocalPosition.y
       value: 0.317
