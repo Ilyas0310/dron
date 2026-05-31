@@ -150,7 +150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0243d83b3f543bc439b78b75fee5d169, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraFollow
-  target: {fileID: 0}
+  target: {fileID: 2628726830856207105, guid: 6c534013df766dc4c8e96fb96b59b7e6, type: 3}
   isFirstPerson: 0
   isLookingDown: 0
   thirdPersonOffset: {x: 0, y: 3, z: -5}

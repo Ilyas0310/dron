@@ -13,8 +13,8 @@ public class DroneController : MonoBehaviour
     public float damageMultiplier = 2f;
 
     [Header("Инерция и Торможение")]
-    public float acceleration = 2f; // Скорость наклона
-    public float moveForce = 15f;   // ТО САМОЕ УСКОРЕНИЕ вперед/вбок
+    public float acceleration = 2f; 
+    public float moveForce = 15f;   
     public float horizontalDrag = 3f;
 
     [Header("Стабилизация и Наклон")]
@@ -35,6 +35,10 @@ public class DroneController : MonoBehaviour
     public KeyCode rollRightKey = KeyCode.D;
     public KeyCode switchViewKey = KeyCode.C;
 
+    [Header("Эффекты камеры")]
+    public GameObject thermalVisionObject; // Сюда закинем визуальный эффект тепловизора
+    private bool isThermalActive = false;  // Состояние: включен или выключен
+
     private Rigidbody rb;
     private float currentYaw;
     private float currentPitch = 0f;
@@ -52,12 +56,32 @@ public class DroneController : MonoBehaviour
         yawLeftKey = (KeyCode)PlayerPrefs.GetInt("key_left", (int)KeyCode.Q);
         yawRightKey = (KeyCode)PlayerPrefs.GetInt("key_right", (int)KeyCode.E);
         
-        // Загружаем новые клавиши
         pitchForwardKey = (KeyCode)PlayerPrefs.GetInt("key_forward", (int)KeyCode.W);
         pitchBackwardKey = (KeyCode)PlayerPrefs.GetInt("key_backward", (int)KeyCode.S);
         rollLeftKey = (KeyCode)PlayerPrefs.GetInt("key_strafe_left", (int)KeyCode.A);
         rollRightKey = (KeyCode)PlayerPrefs.GetInt("key_strafe_right", (int)KeyCode.D);
         switchViewKey = (KeyCode)PlayerPrefs.GetInt("key_switch_view", (int)KeyCode.C);
+
+        // При старте убеждаемся, что тепловизор выключен
+        if (thermalVisionObject != null)
+        {
+            thermalVisionObject.SetActive(false);
+        }
+    }
+
+    // НОВОЕ: Обработка одиночных нажатий клавиш
+    void Update()
+    {
+        // Проверяем нажатие кнопки смены вида (С)
+        if (Input.GetKeyDown(switchViewKey))
+        {
+            isThermalActive = !isThermalActive; // Меняем состояние на противоположное
+            
+            if (thermalVisionObject != null)
+            {
+                thermalVisionObject.SetActive(isThermalActive); // Включаем/выключаем объект
+            }
+        }
     }
 
     void FixedUpdate()
@@ -66,7 +90,6 @@ public class DroneController : MonoBehaviour
         float targetPitch = Input.GetAxis("VerticalRS");
         float targetRoll = Input.GetAxis("HorizontalRS");
 
-        // Добавляем ввод с клавиатуры (ваши переменные клавиш)
         if (Input.GetKey(pitchForwardKey)) targetPitch = 1f;
         if (Input.GetKey(pitchBackwardKey)) targetPitch = -1f;
         if (Input.GetKey(rollRightKey)) targetRoll = 1f;
@@ -98,8 +121,6 @@ public class DroneController : MonoBehaviour
         {
             rb.AddRelativeForce(Vector3.up * actualThrust);
             
-            // --- НОВОЕ: ДОПОЛНИТЕЛЬНОЕ УСКОРЕНИЕ ВПЕРЕД/ВБОК ---
-            // Мы прикладываем силу в плоскости дрона на основе его текущих наклонов
             Vector3 moveDir = (transform.forward * currentPitch) + (transform.right * currentRoll);
             rb.AddForce(moveDir * moveForce, ForceMode.Acceleration);
         }
@@ -129,6 +150,13 @@ public class DroneController : MonoBehaviour
             currentHealth -= damage;
             currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
             Debug.Log($"Удар! Прочность: {currentHealth:F1}%");
+
+            AchievementManager.instance.UnlockAchievement
+            (
+                "first_crash", 
+                "Первая царапина", 
+                "Врежьтесь во что-нибудь на большой скорости."
+            );
         }
     }
 }

@@ -18,11 +18,30 @@ public class FlyingEvaderAI : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         rb.useGravity = false; // Воздушная цель не должна падать
-        CalculateDirection();
+        
+        // Убрали CalculateDirection() отсюда, так как игрока на старте сцены еще нет
     }
 
     void Update()
     {
+        // === ДИНАМИЧЕСКИЙ ПОИСК ИГРОКА ===
+        if (player == null)
+        {
+            GameObject p = GameObject.FindGameObjectWithTag("Player");
+            if (p != null) 
+            {
+                // Игрок заспавнился! Запоминаем его и сразу задаем первое направление
+                player = p.transform;
+                CalculateDirection(); 
+            }
+            else
+            {
+                // Если игрока еще нет, просто ждем
+                return; 
+            }
+        }
+
+        // === ЛОГИКА ТАЙМЕРА (работает только когда игрок найден) ===
         timer -= Time.deltaTime;
         if (timer <= 0)
         {

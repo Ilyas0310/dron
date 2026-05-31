@@ -17,11 +17,30 @@ public class GroundEvaderAI : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         // Чтобы машинка не кувыркалась по земле
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-        CalculateDirection();
+        
+        // УБРАЛИ CalculateDirection() отсюда, так как игрока на старте сцены еще нет
     }
 
     void Update()
     {
+        // === ДИНАМИЧЕСКИЙ ПОИСК ИГРОКА ===
+        if (player == null)
+        {
+            GameObject p = GameObject.FindGameObjectWithTag("Player");
+            if (p != null) 
+            {
+                // Ура, игрок заспавнился! Запоминаем его и сразу вычисляем куда ехать
+                player = p.transform;
+                CalculateDirection(); 
+            }
+            else
+            {
+                // Если игрока еще нет, просто ждем следующий кадр
+                return; 
+            }
+        }
+
+        // === ЛОГИКА ТАЙМЕРА (работает только когда игрок найден) ===
         timer -= Time.deltaTime;
         if (timer <= 0)
         {
